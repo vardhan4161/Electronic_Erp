@@ -349,6 +349,13 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
+  if (typeof window !== "undefined" && !headers.has("authorization")) {
+    const token = localStorage.getItem("erp_token");
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
   if (_authTokenGetter && !headers.has("authorization")) {
