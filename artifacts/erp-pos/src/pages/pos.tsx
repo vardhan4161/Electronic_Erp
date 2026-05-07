@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Minus, Trash2, CreditCard, Receipt } from "lucide-react";
+import { Search, Plus, Minus, Trash2, CreditCard, Receipt, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatINR } from "@/lib/format";
 import type { Product, SaleItemInput, CreateSaleBodyPaymentMethod } from "@workspace/api-client-react";
 
 interface CartItem extends Product {
@@ -27,7 +28,7 @@ export default function Pos() {
   const [amountPaid, setAmountPaid] = useState<number | string>("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  
+
   const { data: products } = useListProducts({ search });
   const createSale = useCreateSale();
   const queryClient = useQueryClient();
@@ -96,7 +97,7 @@ export default function Pos() {
       }
     }, {
       onSuccess: () => {
-        toast({ title: "Sale completed successfully" });
+        toast({ title: "Bikri safaltapurvak poori hui" });
         setCart([]);
         setCustomerName("");
         setCustomerPhone("");
@@ -106,7 +107,7 @@ export default function Pos() {
         queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
       },
       onError: (err: any) => {
-        toast({ title: "Error creating sale", description: err.message, variant: "destructive" });
+        toast({ title: "Bikri mein error", description: err.message, variant: "destructive" });
       }
     });
   };
@@ -117,9 +118,9 @@ export default function Pos() {
       <div className="flex-1 flex flex-col gap-4 bg-white p-4 rounded-lg border">
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input 
-            className="pl-9" 
-            placeholder="Search products by name, SKU, or barcode..." 
+          <Input
+            className="pl-9"
+            placeholder="Naam, SKU ya barcode se product khojein..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -127,8 +128,8 @@ export default function Pos() {
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {products?.map(product => (
-              <Card 
-                key={product.id} 
+              <Card
+                key={product.id}
                 className={`cursor-pointer hover:border-primary transition-colors ${product.currentStock <= 0 ? 'opacity-50' : ''}`}
                 onClick={() => product.currentStock > 0 && addToCart(product)}
               >
@@ -136,11 +137,12 @@ export default function Pos() {
                   <div>
                     <h3 className="font-semibold line-clamp-2">{product.name}</h3>
                     <p className="text-sm text-gray-500 text-xs mt-1">{product.sku}</p>
+                    <p className="text-xs text-gray-400">{product.brand}</p>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
-                    <span className="font-bold text-lg">${product.sellingPrice.toFixed(2)}</span>
+                    <span className="font-bold text-lg">{formatINR(product.sellingPrice)}</span>
                     <span className={`text-xs px-2 py-1 rounded-full ${product.currentStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {product.currentStock} in stock
+                      {product.currentStock} bacha
                     </span>
                   </div>
                 </CardContent>
@@ -153,16 +155,16 @@ export default function Pos() {
       {/* Cart Section */}
       <div className="w-full md:w-96 flex flex-col bg-white p-4 rounded-lg border">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <ShoppingCart className="w-5 h-5" /> Current Sale
+          <ShoppingCart className="w-5 h-5" /> Mौजuda Bikri
         </h2>
-        
+
         <div className="flex-1 overflow-y-auto mb-4 border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Item</TableHead>
-                <TableHead className="w-24 text-center">Qty</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="w-24 text-center">Sankhya</TableHead>
+                <TableHead className="text-right">Kul</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
@@ -170,7 +172,7 @@ export default function Pos() {
               {cart.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                    Cart is empty
+                    Cart khali hai
                   </TableCell>
                 </TableRow>
               ) : (
@@ -178,7 +180,7 @@ export default function Pos() {
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
                       <div className="line-clamp-1">{item.name}</div>
-                      <div className="text-xs text-gray-500">${item.sellingPrice.toFixed(2)}</div>
+                      <div className="text-xs text-gray-500">{formatINR(item.sellingPrice)}</div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
@@ -192,7 +194,7 @@ export default function Pos() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      ${((item.sellingPrice * item.cartQuantity) - item.discount).toFixed(2)}
+                      {formatINR((item.sellingPrice * item.cartQuantity) - item.discount)}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => removeFromCart(item.id)}>
@@ -208,23 +210,41 @@ export default function Pos() {
 
         <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Subtotal</span>
-            <span>${totals.subtotal.toFixed(2)}</span>
+            <span className="text-gray-600">Mool Rashi (Subtotal)</span>
+            <span>{formatINR(totals.subtotal)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Tax {isInterState ? '(IGST)' : '(CGST+SGST)'}</span>
-            <span>${totals.totalTax.toFixed(2)}</span>
+            <span className="text-gray-600">GST {isInterState ? '(IGST)' : '(CGST+SGST)'}</span>
+            <span>{formatINR(totals.totalTax)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input type="checkbox" checked={isInterState} onChange={e => setIsInterState(e.target.checked)} className="mr-1" />
+                Antarrajyiya bikri (IGST)
+              </label>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-600 shrink-0">Chhoot (₹)</span>
+            <Input
+              type="number"
+              className="h-7 text-sm"
+              value={discountAmount || ""}
+              onChange={e => setDiscountAmount(Number(e.target.value) || 0)}
+              placeholder="0"
+            />
           </div>
           <div className="flex justify-between text-lg font-bold border-t pt-2">
-            <span>Total</span>
-            <span>${totals.grandTotal.toFixed(2)}</span>
+            <span>Kul Rashi</span>
+            <span>{formatINR(totals.grandTotal)}</span>
           </div>
-          <Button 
-            className="w-full h-12 text-lg mt-2" 
+          <Button
+            className="w-full h-12 text-lg mt-2"
             disabled={cart.length === 0}
             onClick={() => setPaymentModalOpen(true)}
           >
-            <CreditCard className="w-5 h-5 mr-2" /> Pay ${totals.grandTotal.toFixed(2)}
+            <CreditCard className="w-5 h-5 mr-2" /> Bhugtan Karen {formatINR(totals.grandTotal)}
           </Button>
         </div>
       </div>
@@ -232,57 +252,64 @@ export default function Pos() {
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Complete Payment</DialogTitle>
+            <DialogTitle>Bhugtan Poora Karen</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Customer Name (Optional)</Label>
-                <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="John Doe" />
+                <Label>Grahak ka Naam (Vaikalpik)</Label>
+                <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Rahul Sharma" />
               </div>
               <div className="space-y-2">
-                <Label>Customer Phone (Optional)</Label>
-                <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="1234567890" />
+                <Label>Mobile Nambar (Vaikalpik)</Label>
+                <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="98765 43210" />
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label>Payment Method</Label>
+              <Label>Bhugtan Tarika</Label>
               <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder="Tarika chunein" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="CASH">Nakit (Cash)</SelectItem>
                   <SelectItem value="CARD">Card</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="CREDIT">Store Credit</SelectItem>
+                  <SelectItem value="UPI">UPI (GPay / PhonePe / Paytm)</SelectItem>
+                  <SelectItem value="CREDIT">Udhaar (Credit)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="bg-gray-50 p-3 rounded-md space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Kul Rashi:</span>
+                <span className="font-bold text-base">{formatINR(totals.grandTotal)}</span>
+              </div>
+            </div>
+
             {paymentMethod === "CASH" && (
               <div className="space-y-2">
-                <Label>Amount Tendered</Label>
-                <Input 
-                  type="number" 
-                  value={amountPaid} 
-                  onChange={e => setAmountPaid(e.target.value)} 
-                  placeholder={totals.grandTotal.toFixed(2)} 
+                <Label>Diya Gaya Paisa (₹)</Label>
+                <Input
+                  type="number"
+                  value={amountPaid}
+                  onChange={e => setAmountPaid(e.target.value)}
+                  placeholder={totals.grandTotal.toFixed(2)}
                 />
                 {Number(amountPaid) > totals.grandTotal && (
                   <p className="text-sm text-green-600 font-medium">
-                    Change to return: ${(Number(amountPaid) - totals.grandTotal).toFixed(2)}
+                    Wapas karna hai: {formatINR(Number(amountPaid) - totals.grandTotal)}
                   </p>
                 )}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>Raddh Karen</Button>
             <Button onClick={handleCheckout} disabled={createSale.isPending}>
               <Receipt className="w-4 h-4 mr-2" />
-              {createSale.isPending ? "Processing..." : "Complete Sale"}
+              {createSale.isPending ? "Ho raha hai..." : "Bikri Poori Karen"}
             </Button>
           </DialogFooter>
         </DialogContent>

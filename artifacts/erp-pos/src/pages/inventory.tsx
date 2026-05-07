@@ -7,10 +7,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
 import { Plus, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/format";
 import type { CreateStockMovementBodyMovementType } from "@workspace/api-client-react";
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  PURCHASE: "Kharid",
+  SALE: "Bikri",
+  RETURN: "Wapsi",
+  ADJUSTMENT: "Sudhar",
+};
 
 export default function Inventory() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,7 +38,7 @@ export default function Inventory() {
   const { data: movements, isLoading } = useListStockMovements({});
   const { data: products } = useListProducts({});
   const { data: lowStockProducts } = useGetLowStockProducts({});
-  
+
   const createMut = useCreateStockMovement();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -49,7 +56,7 @@ export default function Inventory() {
       }
     }, {
       onSuccess: () => {
-        toast({ title: "Stock movement recorded" });
+        toast({ title: "Stock badlav darj ho gaya" });
         setIsModalOpen(false);
         setFormData({ productId: "", movementType: "", quantity: "", reference: "", notes: "" });
         queryClient.invalidateQueries({ queryKey: getListStockMovementsQueryKey() });
@@ -62,27 +69,27 @@ export default function Inventory() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Inventory Management</h2>
+        <h2 className="text-2xl font-bold">Stock Prabandhan (Inventory)</h2>
         <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Record Movement
+          <Plus className="w-4 h-4 mr-2" /> Stock Darj Karen
         </Button>
       </div>
 
       {lowStockProducts && lowStockProducts.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <h3 className="text-red-800 font-semibold flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5" /> Low Stock Alerts
+            <AlertTriangle className="w-5 h-5" /> Kam Stock Chetavani ({lowStockProducts.length} products)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {lowStockProducts.map(p => (
               <div key={p.id} className="bg-white p-3 rounded shadow-sm border border-red-100 flex justify-between items-center">
                 <div>
                   <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-gray-500">{p.sku}</div>
+                  <div className="text-xs text-gray-500">{p.sku} · {p.brand}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-red-600 font-bold">{p.currentStock} left</div>
-                  <div className="text-xs text-gray-500">Reorder: {p.reorderLevel}</div>
+                  <div className="text-red-600 font-bold">{p.currentStock} bacha</div>
+                  <div className="text-xs text-gray-500">Min: {p.reorderLevel}</div>
                 </div>
               </div>
             ))}
@@ -94,13 +101,13 @@ export default function Inventory() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead>Tarikh</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Previous</TableHead>
-              <TableHead className="text-right">New</TableHead>
-              <TableHead>Reference</TableHead>
+              <TableHead>Prakar</TableHead>
+              <TableHead className="text-right">Sankhya</TableHead>
+              <TableHead className="text-right">Pehle</TableHead>
+              <TableHead className="text-right">Baad</TableHead>
+              <TableHead>Sandarbh</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,7 +115,7 @@ export default function Inventory() {
               <TableRow><TableCell colSpan={7} className="text-center py-4">Loading...</TableCell></TableRow>
             ) : movements?.map((m) => (
               <TableRow key={m.id}>
-                <TableCell>{format(new Date(m.createdAt), 'MMM dd, yyyy HH:mm')}</TableCell>
+                <TableCell>{formatDateTime(m.createdAt)}</TableCell>
                 <TableCell>
                   <div className="font-medium">{m.productName}</div>
                   <div className="text-xs text-gray-500">{m.productSku}</div>
@@ -120,19 +127,19 @@ export default function Inventory() {
                     m.movementType === 'RETURN' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {m.movementType}
+                    {MOVEMENT_LABELS[m.movementType] ?? m.movementType}
                   </span>
                 </TableCell>
                 <TableCell className="text-right font-medium">
-                  {m.movementType === 'SALE' || (m.movementType === 'ADJUSTMENT' && m.quantity < 0) ? '-' : '+'}{Math.abs(m.quantity)}
+                  {m.movementType === 'SALE' ? '-' : '+'}{Math.abs(m.quantity)}
                 </TableCell>
                 <TableCell className="text-right text-gray-500">{m.previousStock}</TableCell>
                 <TableCell className="text-right font-medium">{m.newStock}</TableCell>
-                <TableCell className="text-sm text-gray-500">{m.reference}</TableCell>
+                <TableCell className="text-sm text-gray-500">{m.reference || "—"}</TableCell>
               </TableRow>
             ))}
             {movements?.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-4">No stock movements found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-4">Koi stock badlav nahi mila</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -141,45 +148,45 @@ export default function Inventory() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record Stock Movement</DialogTitle>
+            <DialogTitle>Stock Badlav Darj Karen</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>Product</Label>
               <Select value={formData.productId} onValueChange={v => setFormData({...formData, productId: v})}>
-                <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Product chunein" /></SelectTrigger>
                 <SelectContent>
-                  {products?.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.sku})</SelectItem>)}
+                  {products?.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.sku}) — {p.currentStock} bacha</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Movement Type</Label>
+              <Label>Badlav Prakar</Label>
               <Select value={formData.movementType} onValueChange={v => setFormData({...formData, movementType: v as any})}>
-                <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Prakar chunein" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PURCHASE">Purchase (Add Stock)</SelectItem>
-                  <SelectItem value="RETURN">Return (Add Stock)</SelectItem>
-                  <SelectItem value="ADJUSTMENT">Adjustment (Use negative for deduction)</SelectItem>
+                  <SelectItem value="PURCHASE">Kharid (Stock Badhaao)</SelectItem>
+                  <SelectItem value="RETURN">Wapsi (Stock Badhaao)</SelectItem>
+                  <SelectItem value="ADJUSTMENT">Sudhar (Sahi karo)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} placeholder="e.g. 10 or -5 for adjustment" />
+              <Label>Sankhya (Quantity)</Label>
+              <Input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} placeholder="jaise: 10" />
             </div>
             <div className="space-y-2">
-              <Label>Reference (Optional)</Label>
-              <Input value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="PO number, etc." />
+              <Label>Sandarbh (Optional)</Label>
+              <Input value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="PO number / Bill number" />
             </div>
             <div className="space-y-2">
-              <Label>Notes (Optional)</Label>
-              <Input value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+              <Label>Tippani (Optional)</Label>
+              <Input value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Koi vishesh jaankari" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMut.isPending}>Save</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Raddh Karen</Button>
+            <Button onClick={handleSubmit} disabled={createMut.isPending}>Surakshit Karen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
