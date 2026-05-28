@@ -26,6 +26,8 @@ tags:
     description: Expense tracking
   - name: reports
     description: Reports & analytics
+  - name: customers
+    description: Customer management
 
 paths:
   /healthz:
@@ -786,6 +788,209 @@ paths:
                 items:
                   $ref: "#/components/schemas/CategorySales"
 
+  # ─── CUSTOMERS ──────────────────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerBody"
+      responses:
+        "201":
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerBody"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /customers/{id}/sales:
+    get:
+      operationId: getCustomerSales
+      tags: [customers]
+      summary: Get sales for a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer sales
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sale"
+
+  # ─── SERIAL NUMBERS ─────────────────────────────────────────────────────────
+  /serial-numbers:
+    get:
+      operationId: listSerialNumbers
+      tags: [inventory]
+      summary: List serial/IMEI numbers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: productId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of serial numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SerialNumber"
+    post:
+      operationId: createSerialNumber
+      tags: [inventory]
+      summary: Add a serial number
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSerialNumberBody"
+      responses:
+        "201":
+          description: Serial number created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SerialNumber"
+
+  /serial-numbers/{id}:
+    patch:
+      operationId: updateSerialNumber
+      tags: [inventory]
+      summary: Update serial number status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSerialNumberBody"
+      responses:
+        "200":
+          description: Updated serial number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SerialNumber"
+
 # ─── COMPONENTS ───────────────────────────────────────────────────────────────
 components:
   schemas:
@@ -1337,3 +1542,101 @@ components:
         percentage:
           type: number
       required: [categoryId, categoryName, quantitySold, revenue, percentage]
+
+    # Customers
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        gstin:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        totalPurchases:
+          type: number
+        purchaseCount:
+          type: integer
+        createdAt:
+          type: string
+      required: [id, name, phone, totalPurchases, purchaseCount, createdAt]
+
+    CreateCustomerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        gstin:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required: [name, phone]
+
+    # Serial Numbers
+    SerialNumber:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+        serialNumber:
+          type: string
+        imei1:
+          type: ["string", "null"]
+        imei2:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [AVAILABLE, SOLD, DEFECTIVE]
+        saleId:
+          type: ["integer", "null"]
+        purchasePrice:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, productId, productName, serialNumber, status, createdAt]
+
+    CreateSerialNumberBody:
+      type: object
+      properties:
+        productId:
+          type: integer
+        serialNumber:
+          type: string
+        imei1:
+          type: ["string", "null"]
+        imei2:
+          type: ["string", "null"]
+        purchasePrice:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+      required: [productId, serialNumber]
+
+    UpdateSerialNumberBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [AVAILABLE, SOLD, DEFECTIVE]
+        notes:
+          type: ["string", "null"]

@@ -709,3 +709,189 @@ export const GetCategorySalesResponseItem = zod.object({
   percentage: zod.number(),
 });
 export const GetCategorySalesResponse = zod.array(GetCategorySalesResponseItem);
+
+/**
+ * @summary List all customers
+ */
+export const ListCustomersQueryParams = zod.object({
+  search: zod.coerce.string().nullish(),
+});
+
+export const ListCustomersResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  gstin: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  totalPurchases: zod.number(),
+  purchaseCount: zod.number(),
+  createdAt: zod.string(),
+});
+export const ListCustomersResponse = zod.array(ListCustomersResponseItem);
+
+/**
+ * @summary Create a customer
+ */
+export const CreateCustomerBody = zod.object({
+  name: zod.string(),
+  phone: zod.string(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  gstin: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a customer by ID
+ */
+export const GetCustomerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCustomerResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  gstin: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  totalPurchases: zod.number(),
+  purchaseCount: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Update a customer
+ */
+export const UpdateCustomerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCustomerBody = zod.object({
+  name: zod.string(),
+  phone: zod.string(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  gstin: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateCustomerResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  gstin: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  totalPurchases: zod.number(),
+  purchaseCount: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete a customer
+ */
+export const DeleteCustomerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCustomerResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get sales for a customer
+ */
+export const GetCustomerSalesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCustomerSalesResponseItem = zod.object({
+  id: zod.number(),
+  invoiceNumber: zod.string(),
+  customerName: zod.string().nullish(),
+  customerPhone: zod.string().nullish(),
+  customerGstin: zod.string().nullish(),
+  subtotal: zod.number(),
+  discountAmount: zod.number(),
+  cgst: zod.number(),
+  sgst: zod.number(),
+  igst: zod.number(),
+  totalTax: zod.number(),
+  grandTotal: zod.number(),
+  paymentMethod: zod.enum(["CASH", "CARD", "UPI", "CREDIT"]),
+  amountPaid: zod.number(),
+  changeAmount: zod.number(),
+  status: zod.enum(["COMPLETED", "RETURNED", "PARTIAL_RETURN"]),
+  notes: zod.string().nullish(),
+  createdBy: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const GetCustomerSalesResponse = zod.array(GetCustomerSalesResponseItem);
+
+/**
+ * @summary List serial/IMEI numbers
+ */
+export const ListSerialNumbersQueryParams = zod.object({
+  productId: zod.coerce.number().nullish(),
+  status: zod.coerce.string().nullish(),
+});
+
+export const ListSerialNumbersResponseItem = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productName: zod.string(),
+  serialNumber: zod.string(),
+  imei1: zod.string().nullish(),
+  imei2: zod.string().nullish(),
+  status: zod.enum(["AVAILABLE", "SOLD", "DEFECTIVE"]),
+  saleId: zod.number().nullish(),
+  purchasePrice: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListSerialNumbersResponse = zod.array(
+  ListSerialNumbersResponseItem,
+);
+
+/**
+ * @summary Add a serial number
+ */
+export const CreateSerialNumberBody = zod.object({
+  productId: zod.number(),
+  serialNumber: zod.string(),
+  imei1: zod.string().nullish(),
+  imei2: zod.string().nullish(),
+  purchasePrice: zod.number().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update serial number status
+ */
+export const UpdateSerialNumberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSerialNumberBody = zod.object({
+  status: zod.enum(["AVAILABLE", "SOLD", "DEFECTIVE"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSerialNumberResponse = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productName: zod.string(),
+  serialNumber: zod.string(),
+  imei1: zod.string().nullish(),
+  imei2: zod.string().nullish(),
+  status: zod.enum(["AVAILABLE", "SOLD", "DEFECTIVE"]),
+  saleId: zod.number().nullish(),
+  purchasePrice: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});

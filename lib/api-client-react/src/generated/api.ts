@@ -22,11 +22,14 @@ import type {
   CategorySales,
   ChangePasswordBody,
   CreateCategoryBody,
+  CreateCustomerBody,
   CreateExpenseBody,
   CreateProductBody,
   CreateSaleBody,
+  CreateSerialNumberBody,
   CreateStockMovementBody,
   CreateUserBody,
+  Customer,
   DailySales,
   DashboardStats,
   ErrorResponse,
@@ -38,9 +41,11 @@ import type {
   GetTopProductsParams,
   GstReport,
   HealthStatus,
+  ListCustomersParams,
   ListExpensesParams,
   ListProductsParams,
   ListSalesParams,
+  ListSerialNumbersParams,
   ListStockMovementsParams,
   LoginBody,
   MessageResponse,
@@ -49,9 +54,11 @@ import type {
   ReturnSaleBody,
   Sale,
   SaleDetail,
+  SerialNumber,
   StockMovement,
   TopProduct,
   UpdateProductBody,
+  UpdateSerialNumberBody,
   UpdateUserBody,
   User,
 } from "./api.schemas";
@@ -3215,3 +3222,798 @@ export function useGetCategorySales<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all customers
+ */
+export const getListCustomersUrl = (params?: ListCustomersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/customers?${stringifiedParams}`
+    : `/api/customers`;
+};
+
+export const listCustomers = async (
+  params?: ListCustomersParams,
+  options?: RequestInit,
+): Promise<Customer[]> => {
+  return customFetch<Customer[]>(getListCustomersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCustomersQueryKey = (params?: ListCustomersParams) => {
+  return [`/api/customers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCustomersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCustomers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCustomersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCustomers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCustomersQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCustomers>>> = ({
+    signal,
+  }) => listCustomers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCustomersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCustomers>>
+>;
+export type ListCustomersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all customers
+ */
+
+export function useListCustomers<
+  TData = Awaited<ReturnType<typeof listCustomers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCustomersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCustomers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCustomersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a customer
+ */
+export const getCreateCustomerUrl = () => {
+  return `/api/customers`;
+};
+
+export const createCustomer = async (
+  createCustomerBody: CreateCustomerBody,
+  options?: RequestInit,
+): Promise<Customer> => {
+  return customFetch<Customer>(getCreateCustomerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCustomerBody),
+  });
+};
+
+export const getCreateCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCustomer>>,
+    TError,
+    { data: BodyType<CreateCustomerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCustomer>>,
+  TError,
+  { data: BodyType<CreateCustomerBody> },
+  TContext
+> => {
+  const mutationKey = ["createCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCustomer>>,
+    { data: BodyType<CreateCustomerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCustomer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCustomer>>
+>;
+export type CreateCustomerMutationBody = BodyType<CreateCustomerBody>;
+export type CreateCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a customer
+ */
+export const useCreateCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCustomer>>,
+    TError,
+    { data: BodyType<CreateCustomerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCustomer>>,
+  TError,
+  { data: BodyType<CreateCustomerBody> },
+  TContext
+> => {
+  return useMutation(getCreateCustomerMutationOptions(options));
+};
+
+/**
+ * @summary Get a customer by ID
+ */
+export const getGetCustomerUrl = (id: number) => {
+  return `/api/customers/${id}`;
+};
+
+export const getCustomer = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Customer> => {
+  return customFetch<Customer>(getGetCustomerUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCustomerQueryKey = (id: number) => {
+  return [`/api/customers/${id}`] as const;
+};
+
+export const getGetCustomerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCustomer>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCustomer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCustomerQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomer>>> = ({
+    signal,
+  }) => getCustomer(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCustomer>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCustomerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCustomer>>
+>;
+export type GetCustomerQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a customer by ID
+ */
+
+export function useGetCustomer<
+  TData = Awaited<ReturnType<typeof getCustomer>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCustomer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCustomerQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a customer
+ */
+export const getUpdateCustomerUrl = (id: number) => {
+  return `/api/customers/${id}`;
+};
+
+export const updateCustomer = async (
+  id: number,
+  createCustomerBody: CreateCustomerBody,
+  options?: RequestInit,
+): Promise<Customer> => {
+  return customFetch<Customer>(getUpdateCustomerUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCustomerBody),
+  });
+};
+
+export const getUpdateCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCustomer>>,
+    TError,
+    { id: number; data: BodyType<CreateCustomerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCustomer>>,
+  TError,
+  { id: number; data: BodyType<CreateCustomerBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCustomer>>,
+    { id: number; data: BodyType<CreateCustomerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCustomer(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCustomer>>
+>;
+export type UpdateCustomerMutationBody = BodyType<CreateCustomerBody>;
+export type UpdateCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a customer
+ */
+export const useUpdateCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCustomer>>,
+    TError,
+    { id: number; data: BodyType<CreateCustomerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCustomer>>,
+  TError,
+  { id: number; data: BodyType<CreateCustomerBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCustomerMutationOptions(options));
+};
+
+/**
+ * @summary Delete a customer
+ */
+export const getDeleteCustomerUrl = (id: number) => {
+  return `/api/customers/${id}`;
+};
+
+export const deleteCustomer = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteCustomerUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomer>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCustomer>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCustomer>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCustomer(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCustomer>>
+>;
+
+export type DeleteCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a customer
+ */
+export const useDeleteCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomer>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCustomer>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCustomerMutationOptions(options));
+};
+
+/**
+ * @summary Get sales for a customer
+ */
+export const getGetCustomerSalesUrl = (id: number) => {
+  return `/api/customers/${id}/sales`;
+};
+
+export const getCustomerSales = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Sale[]> => {
+  return customFetch<Sale[]>(getGetCustomerSalesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCustomerSalesQueryKey = (id: number) => {
+  return [`/api/customers/${id}/sales`] as const;
+};
+
+export const getGetCustomerSalesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCustomerSales>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCustomerSales>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCustomerSalesQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCustomerSales>>
+  > = ({ signal }) => getCustomerSales(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCustomerSales>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCustomerSalesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCustomerSales>>
+>;
+export type GetCustomerSalesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get sales for a customer
+ */
+
+export function useGetCustomerSales<
+  TData = Awaited<ReturnType<typeof getCustomerSales>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCustomerSales>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCustomerSalesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List serial/IMEI numbers
+ */
+export const getListSerialNumbersUrl = (params?: ListSerialNumbersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/serial-numbers?${stringifiedParams}`
+    : `/api/serial-numbers`;
+};
+
+export const listSerialNumbers = async (
+  params?: ListSerialNumbersParams,
+  options?: RequestInit,
+): Promise<SerialNumber[]> => {
+  return customFetch<SerialNumber[]>(getListSerialNumbersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSerialNumbersQueryKey = (
+  params?: ListSerialNumbersParams,
+) => {
+  return [`/api/serial-numbers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSerialNumbersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSerialNumbers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSerialNumbersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSerialNumbers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSerialNumbersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSerialNumbers>>
+  > = ({ signal }) => listSerialNumbers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSerialNumbers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSerialNumbersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSerialNumbers>>
+>;
+export type ListSerialNumbersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List serial/IMEI numbers
+ */
+
+export function useListSerialNumbers<
+  TData = Awaited<ReturnType<typeof listSerialNumbers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSerialNumbersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSerialNumbers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSerialNumbersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a serial number
+ */
+export const getCreateSerialNumberUrl = () => {
+  return `/api/serial-numbers`;
+};
+
+export const createSerialNumber = async (
+  createSerialNumberBody: CreateSerialNumberBody,
+  options?: RequestInit,
+): Promise<SerialNumber> => {
+  return customFetch<SerialNumber>(getCreateSerialNumberUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSerialNumberBody),
+  });
+};
+
+export const getCreateSerialNumberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSerialNumber>>,
+    TError,
+    { data: BodyType<CreateSerialNumberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSerialNumber>>,
+  TError,
+  { data: BodyType<CreateSerialNumberBody> },
+  TContext
+> => {
+  const mutationKey = ["createSerialNumber"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSerialNumber>>,
+    { data: BodyType<CreateSerialNumberBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSerialNumber(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSerialNumberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSerialNumber>>
+>;
+export type CreateSerialNumberMutationBody = BodyType<CreateSerialNumberBody>;
+export type CreateSerialNumberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a serial number
+ */
+export const useCreateSerialNumber = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSerialNumber>>,
+    TError,
+    { data: BodyType<CreateSerialNumberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSerialNumber>>,
+  TError,
+  { data: BodyType<CreateSerialNumberBody> },
+  TContext
+> => {
+  return useMutation(getCreateSerialNumberMutationOptions(options));
+};
+
+/**
+ * @summary Update serial number status
+ */
+export const getUpdateSerialNumberUrl = (id: number) => {
+  return `/api/serial-numbers/${id}`;
+};
+
+export const updateSerialNumber = async (
+  id: number,
+  updateSerialNumberBody: UpdateSerialNumberBody,
+  options?: RequestInit,
+): Promise<SerialNumber> => {
+  return customFetch<SerialNumber>(getUpdateSerialNumberUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSerialNumberBody),
+  });
+};
+
+export const getUpdateSerialNumberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSerialNumber>>,
+    TError,
+    { id: number; data: BodyType<UpdateSerialNumberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSerialNumber>>,
+  TError,
+  { id: number; data: BodyType<UpdateSerialNumberBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSerialNumber"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSerialNumber>>,
+    { id: number; data: BodyType<UpdateSerialNumberBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSerialNumber(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSerialNumberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSerialNumber>>
+>;
+export type UpdateSerialNumberMutationBody = BodyType<UpdateSerialNumberBody>;
+export type UpdateSerialNumberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update serial number status
+ */
+export const useUpdateSerialNumber = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSerialNumber>>,
+    TError,
+    { id: number; data: BodyType<UpdateSerialNumberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSerialNumber>>,
+  TError,
+  { id: number; data: BodyType<UpdateSerialNumberBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSerialNumberMutationOptions(options));
+};

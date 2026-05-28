@@ -8,6 +8,8 @@ import inventoryRouter from "./inventory";
 import salesRouter from "./sales";
 import expensesRouter from "./expenses";
 import reportsRouter from "./reports";
+import customersRouter from "./customers";
+import serialNumbersRouter from "./serial-numbers";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(inventoryRouter);
 router.use(salesRouter);
 router.use(expensesRouter);
 router.use(reportsRouter);
+router.use(customersRouter);
+router.use(serialNumbersRouter);
 
 export default router;

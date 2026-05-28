@@ -394,6 +394,92 @@ export interface CategorySales {
   percentage: number;
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  gstin?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  totalPurchases: number;
+  purchaseCount: number;
+  createdAt: string;
+}
+
+export interface CreateCustomerBody {
+  name: string;
+  phone: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  gstin?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type SerialNumberStatus =
+  (typeof SerialNumberStatus)[keyof typeof SerialNumberStatus];
+
+export const SerialNumberStatus = {
+  AVAILABLE: "AVAILABLE",
+  SOLD: "SOLD",
+  DEFECTIVE: "DEFECTIVE",
+} as const;
+
+export interface SerialNumber {
+  id: number;
+  productId: number;
+  productName: string;
+  serialNumber: string;
+  /** @nullable */
+  imei1?: string | null;
+  /** @nullable */
+  imei2?: string | null;
+  status: SerialNumberStatus;
+  /** @nullable */
+  saleId?: number | null;
+  /** @nullable */
+  purchasePrice?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface CreateSerialNumberBody {
+  productId: number;
+  serialNumber: string;
+  /** @nullable */
+  imei1?: string | null;
+  /** @nullable */
+  imei2?: string | null;
+  /** @nullable */
+  purchasePrice?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateSerialNumberBodyStatus =
+  (typeof UpdateSerialNumberBodyStatus)[keyof typeof UpdateSerialNumberBodyStatus];
+
+export const UpdateSerialNumberBodyStatus = {
+  AVAILABLE: "AVAILABLE",
+  SOLD: "SOLD",
+  DEFECTIVE: "DEFECTIVE",
+} as const;
+
+export interface UpdateSerialNumberBody {
+  status?: UpdateSerialNumberBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export type ListProductsParams = {
   /**
    * @nullable
@@ -511,4 +597,22 @@ export type GetCategorySalesParams = {
    * @nullable
    */
   toDate?: string | null;
+};
+
+export type ListCustomersParams = {
+  /**
+   * @nullable
+   */
+  search?: string | null;
+};
+
+export type ListSerialNumbersParams = {
+  /**
+   * @nullable
+   */
+  productId?: number | null;
+  /**
+   * @nullable
+   */
+  status?: string | null;
 };

@@ -5,3 +5,5 @@ export * from "./stock_movements";
 export * from "./sales";
 export * from "./sale_items";
 export * from "./expenses";
+export * from "./customers";
+export * from "./serial_numbers";
