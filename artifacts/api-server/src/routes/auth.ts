@@ -58,33 +58,19 @@ router.post("/auth/login", async (req, res) => {
 });
 
 /** GET /api/auth/me */
-router.get("/auth/me", requireAuth, async (req, res) => {
-  try {
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, req.user!.userId))
-      .limit(1);
-
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt.toISOString(),
-    });
-  } catch (err) {
-    logger.error({ err }, "Get me error");
-    res.status(500).json({ error: "Internal server error" });
-  }
+router.get("/auth/me", requireAuth, async (_req, res) => {
+  // Auth bypassed: return hardcoded admin user for local development
+  res.json({
+    id: 1,
+    username: "admin",
+    email: "admin@volterp.com",
+    fullName: "System Admin",
+    role: "admin",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  });
 });
+
 
 /** POST /api/auth/logout */
 router.post("/auth/logout", requireAuth, (_req, res) => {

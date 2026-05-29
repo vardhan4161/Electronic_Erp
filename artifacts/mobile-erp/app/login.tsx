@@ -1,167 +1,156 @@
-import { Feather } from "@expo/vector-icons";
-import { useLogin } from "@workspace/api-client-react";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/contexts/AuthContext";
-import { useColors } from "@/hooks/useColors";
+/**
+ * Login Screen — PIN-based authentication
+ * Simple numeric PIN pad with user selection
+ */
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Alert, FlatList } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDatabaseStatus } from '@/contexts/DatabaseContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import type { User } from '@/database/repositories';
 
 export default function LoginScreen() {
-  const colors = useColors();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { repos, isReady } = useDatabaseStatus();
   const { login } = useAuth();
-  const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [pin, setPin] = useState('');
+  const [shake] = useState(new Animated.Value(0));
 
-  const loginMutation = useLogin({
-    mutation: {
-      onSuccess: async (data) => {
-        await login(data.token, data.user as any);
-        router.replace("/(tabs)");
-      },
-      onError: () => {
-        setError("Invalid username or password");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      },
-    },
-  });
-
-  const handleLogin = () => {
-    if (!username.trim() || !password.trim()) {
-      setError("Please enter username and password");
-      return;
+  useEffect(() => {
+    if (isReady && repos) {
+      repos.users.list().then(u => setUsers(u.filter(x => x.is_active)));
     }
-    setError("");
-    loginMutation.mutate({ data: { username: username.trim(), password } });
+  }, [isReady]);
+
+  const handlePinPress = (digit: string) => {
+    if (pin.length >= 4) return;
+    const newPin = pin + digit;
+    setPin(newPin);
+
+    if (newPin.length === 4 && selectedUser) {
+      // Check PIN
+      if (selectedUser.pin_hash === newPin) {
+        login(selectedUser);
+      } else {
+        // Shake animation
+        Animated.sequence([
+          Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
+          Animated.timing(shake, { toValue: -10, duration: 50, useNativeDriver: true }),
+          Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
+          Animated.timing(shake, { toValue: 0, duration: 50, useNativeDriver: true }),
+        ]).start();
+        setTimeout(() => setPin(''), 300);
+        Alert.alert('Wrong PIN', 'Please try again');
+      }
+    }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={[styles.inner, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
-        <View style={styles.header}>
-          <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
-            <Feather name="zap" size={28} color="#fff" />
-          </View>
-          <Text style={[styles.appName, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Volt ERP</Text>
-          <Text style={[styles.tagline, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            Electronics Retail Management
-          </Text>
-        </View>
+  const handleDelete = () => setPin(pin.slice(0, -1));
 
-        <View style={styles.form}>
-          {error ? (
-            <View style={[styles.errorBox, { backgroundColor: colors.destructive + "22", borderColor: colors.destructive + "44" }]}>
-              <Feather name="alert-circle" size={14} color={colors.destructive} />
-              <Text style={[styles.errorText, { color: colors.destructive, fontFamily: "Inter_400Regular" }]}>{error}</Text>
-            </View>
-          ) : null}
+  const roleColors: Record<string, string> = {
+    admin: colors.primary,
+    manager: colors.success,
+    salesperson: colors.warning,
+    accountant: colors.info,
+  };
 
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Feather name="user" size={16} color={colors.mutedForeground} />
-            <TextInput
-              style={[styles.input, { color: colors.text, fontFamily: "Inter_400Regular" }]}
-              placeholder="Username"
-              placeholderTextColor={colors.mutedForeground}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-            />
-          </View>
+  if (!selectedUser) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 40 }]}>
+        <Text style={[styles.title, { color: colors.text }]}>NK Enterprises</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Select your account</Text>
 
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Feather name="lock" size={16} color={colors.mutedForeground} />
-            <TextInput
-              style={[styles.input, { color: colors.text, fontFamily: "Inter_400Regular" }]}
-              placeholder="Password"
-              placeholderTextColor={colors.mutedForeground}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPw}
-              returnKeyType="done"
-              onSubmitEditing={handleLogin}
-            />
-            <TouchableOpacity onPress={() => setShowPw((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name={showPw ? "eye-off" : "eye"} size={16} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.loginBtn, { backgroundColor: colors.primary, opacity: loginMutation.isPending ? 0.7 : 1 }]}
-            onPress={handleLogin}
-            disabled={loginMutation.isPending}
-            activeOpacity={0.85}
-          >
-            {loginMutation.isPending ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={[styles.loginText, { fontFamily: "Inter_600SemiBold" }]}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.demoBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.demoTitle, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-            Demo Credentials
-          </Text>
-          {[
-            { role: "Admin", user: "admin", pw: "admin123" },
-            { role: "Manager", user: "manager1", pw: "admin123" },
-            { role: "Cashier", user: "cashier1", pw: "admin123" },
-          ].map((c) => (
+        <FlatList
+          data={users}
+          keyExtractor={u => String(u.id)}
+          contentContainerStyle={styles.userList}
+          renderItem={({ item: u }) => (
             <TouchableOpacity
-              key={c.role}
-              style={styles.demoRow}
-              onPress={() => { setUsername(c.user); setPassword(c.pw); setError(""); }}
+              style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedUser(u)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.demoRole, { color: colors.primary, fontFamily: "Inter_500Medium" }]}>{c.role}</Text>
-              <Text style={[styles.demoUser, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {c.user} / {c.pw}
-              </Text>
+              <View style={[styles.avatar, { backgroundColor: (roleColors[u.role] || colors.primary) + '22' }]}>
+                <Feather name="user" size={24} color={roleColors[u.role] || colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.userName, { color: colors.text }]}>{u.full_name}</Text>
+                <Text style={[styles.userRole, { color: colors.textSecondary }]}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.textMuted} />
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
+        />
       </View>
-    </KeyboardAvoidingView>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 40 }]}>
+      <TouchableOpacity onPress={() => { setSelectedUser(null); setPin(''); }} style={styles.backBtn}>
+        <Feather name="arrow-left" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <View style={[styles.avatar, { backgroundColor: (roleColors[selectedUser.role] || colors.primary) + '22', width: 72, height: 72, borderRadius: 36, alignSelf: 'center' }]}>
+        <Feather name="user" size={32} color={roleColors[selectedUser.role] || colors.primary} />
+      </View>
+      <Text style={[styles.title, { color: colors.text, marginTop: 16 }]}>{selectedUser.full_name}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your 4-digit PIN</Text>
+
+      <Animated.View style={[styles.pinDots, { transform: [{ translateX: shake }] }]}>
+        {[0, 1, 2, 3].map(i => (
+          <View
+            key={i}
+            style={[styles.pinDot, {
+              backgroundColor: i < pin.length ? colors.primary : 'transparent',
+              borderColor: i < pin.length ? colors.primary : colors.textMuted,
+            }]}
+          />
+        ))}
+      </Animated.View>
+
+      <View style={styles.numpad}>
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
+          <TouchableOpacity
+            key={key || 'empty'}
+            style={[styles.numKey, { backgroundColor: key ? colors.card : 'transparent', borderColor: key ? colors.border : 'transparent' }]}
+            onPress={() => {
+              if (key === 'del') handleDelete();
+              else if (key) handlePinPress(key);
+            }}
+            activeOpacity={0.6}
+            disabled={!key}
+          >
+            {key === 'del' ? (
+              <Feather name="delete" size={22} color={colors.textSecondary} />
+            ) : (
+              <Text style={[styles.numText, { color: colors.text }]}>{key}</Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  inner: { flex: 1, paddingHorizontal: 24 },
-  header: { alignItems: "center", marginBottom: 36 },
-  logoBox: { width: 64, height: 64, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  appName: { fontSize: 28, marginBottom: 6 },
-  tagline: { fontSize: 14 },
-  form: { gap: 12, marginBottom: 24 },
-  errorBox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1 },
-  errorText: { fontSize: 14, flex: 1 },
-  inputWrap: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 14 },
-  input: { flex: 1, fontSize: 15 },
-  loginBtn: { borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 4 },
-  loginText: { color: "#fff", fontSize: 16 },
-  demoBox: { borderRadius: 12, padding: 14, borderWidth: 1, gap: 8 },
-  demoTitle: { fontSize: 12, marginBottom: 4 },
-  demoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
-  demoRole: { fontSize: 13 },
-  demoUser: { fontSize: 13 },
+  container: { flex: 1, alignItems: 'center' },
+  backBtn: { position: 'absolute', top: 60, left: 20, padding: 8, zIndex: 10 },
+  title: { fontSize: 24, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  subtitle: { fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 6, marginBottom: 24 },
+  userList: { paddingHorizontal: 24, paddingTop: 16, width: '100%', gap: 12 },
+  userCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, gap: 14 },
+  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  userName: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  userRole: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  pinDots: { flexDirection: 'row', gap: 16, marginBottom: 32 },
+  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
+  numpad: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, width: 280 },
+  numKey: { width: 80, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  numText: { fontSize: 22, fontFamily: 'Inter_600SemiBold' },
 });

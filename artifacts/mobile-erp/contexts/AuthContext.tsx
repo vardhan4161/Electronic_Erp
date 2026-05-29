@@ -1,84 +1,64 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-
-export interface AuthUser {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string;
-  role: "admin" | "manager" | "cashier";
-  isActive: boolean;
-}
+/**
+ * Auth Context — PIN-based local authentication
+ * Persists session in AsyncStorage, auto-locks after inactivity
+ */
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User } from '@/database/repositories';
 
 interface AuthContextType {
-  user: AuthUser | null;
-  token: string | null;
+  user: User | null;
   isLoading: boolean;
-  login: (token: string, user: AuthUser) => Promise<void>;
+  login: (user: User) => Promise<void>;
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  login: async () => {},
+  logout: async () => {},
+});
 
-const TOKEN_KEY = "erp_token";
-const USER_KEY = "erp_user";
+const AUTH_STORAGE_KEY = 'nk_erp_auth_user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Restore session on mount
   useEffect(() => {
-    async function loadAuth() {
+    (async () => {
       try {
-        const [storedToken, storedUser] = await Promise.all([
-          AsyncStorage.getItem(TOKEN_KEY),
-          AsyncStorage.getItem(USER_KEY),
-        ]);
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+        if (stored) {
+          setUser(JSON.parse(stored));
         }
-      } catch {}
-      finally {
+      } catch (e) {
+        console.error('[Auth] Failed to restore session:', e);
+      } finally {
         setIsLoading(false);
       }
-    }
-    loadAuth();
+    })();
   }, []);
 
-  useEffect(() => {
-    setAuthTokenGetter(() => token);
-  }, [token]);
-
-  const login = useCallback(async (newToken: string, newUser: AuthUser) => {
-    await Promise.all([
-      AsyncStorage.setItem(TOKEN_KEY, newToken),
-      AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser)),
-    ]);
-    setToken(newToken);
-    setUser(newUser);
+  const login = useCallback(async (u: User) => {
+    setUser(u);
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
   }, []);
 
   const logout = useCallback(async () => {
-    await Promise.all([
-      AsyncStorage.removeItem(TOKEN_KEY),
-      AsyncStorage.removeItem(USER_KEY),
-    ]);
-    setToken(null);
     setUser(null);
+    await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  return useContext(AuthContext);
 }

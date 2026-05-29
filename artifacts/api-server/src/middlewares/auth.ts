@@ -27,23 +27,13 @@ export function verifyToken(token: string): AuthPayload {
   return jwt.verify(token, JWT_SECRET) as AuthPayload;
 }
 
-/** Middleware: require valid JWT */
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const token = authHeader.slice(7);
-  try {
-    req.user = verifyToken(token);
-    next();
-  } catch {
-    logger.warn("Invalid JWT token");
-    res.status(401).json({ error: "Invalid or expired token" });
-  }
+/** Middleware: require valid JWT — BYPASSED for local dev, always admin */
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+  // Auth bypassed: always inject admin user for local development
+  req.user = { userId: 1, username: "admin", role: "admin" };
+  next();
 }
+
 
 /** Middleware: require specific role(s) */
 export function requireRole(...roles: Array<"admin" | "manager" | "cashier">) {

@@ -1,54 +1,39 @@
-import React, { Component, ComponentType, PropsWithChildren } from "react";
-
-import { ErrorFallback, ErrorFallbackProps } from "@/components/ErrorFallback";
-
-export type ErrorBoundaryProps = PropsWithChildren<{
-  FallbackComponent?: ComponentType<ErrorFallbackProps>;
-  onError?: (error: Error, stackTrace: string) => void;
-}>;
-
-type ErrorBoundaryState = { error: Error | null };
-
 /**
- * This is a special case for for using the class components. Error boundaries must be class components because React only provides error boundary functionality through lifecycle methods (componentDidCatch and getDerivedStateFromError) which are not available in functional components.
- * https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+ * Simple Error Boundary component
  */
-export class ErrorBoundary extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
-  state: ErrorBoundaryState = { error: null };
+import React, { Component, PropsWithChildren } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
-  static defaultProps: {
-    FallbackComponent: ComponentType<ErrorFallbackProps>;
-  } = {
-    FallbackComponent: ErrorFallback,
-  };
+type Props = PropsWithChildren<{}>;
+type State = { error: Error | null };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { error: null };
+
+  static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: { componentStack: string }): void {
-    if (typeof this.props.onError === "function") {
-      this.props.onError(error, info.componentStack);
-    }
-  }
-
-  resetError = (): void => {
-    this.setState({ error: null });
-  };
-
   render() {
-    const { FallbackComponent } = this.props;
-
-    return this.state.error && FallbackComponent ? (
-      <FallbackComponent
-        error={this.state.error}
-        resetError={this.resetError}
-      />
-    ) : (
-      this.props.children
-    );
+    if (this.state.error) {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.message}>{this.state.error.message}</Text>
+          <TouchableOpacity style={styles.button} onPress={() => this.setState({ error: null })}>
+            <Text style={styles.buttonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
   }
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1117', padding: 20 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#EF4444', marginBottom: 8 },
+  message: { fontSize: 14, color: '#8B949E', textAlign: 'center', marginBottom: 20 },
+  button: { paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#3B82F6', borderRadius: 10 },
+  buttonText: { fontSize: 14, fontWeight: '600', color: '#FFF' },
+});

@@ -1,12 +1,13 @@
-import React, { useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import React from "react";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useGetMe } from "@workspace/api-client-react";
+import { setBaseUrl } from "@workspace/api-client-react";
+
+setBaseUrl("http://127.0.0.1:8080");
 import { AppLayout } from "@/components/layout";
 
-import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Pos from "@/pages/pos";
 import Products from "@/pages/products";
@@ -27,46 +28,19 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Auth completely removed – render the component directly inside AppLayout */
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const [, setLocation] = useLocation();
-  const token = localStorage.getItem("erp_token");
-
-  const { data, isLoading, isError } = useGetMe({
-    query: {
-      enabled: !!token,
-      retry: false,
-    },
-  });
-
-  useEffect(() => {
-    if (!token || isError) {
-      setLocation("/login");
-    }
-  }, [token, isError, setLocation]);
-
-  if (!token || isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
-
-  if (data) {
-    return (
-      <AppLayout>
-        <Component />
-      </AppLayout>
-    );
-  }
-
-  return null;
+  return (
+    <AppLayout>
+      <Component />
+    </AppLayout>
+  );
 }
 
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={Login} />
+      <Route path="/login" component={() => <Redirect to="/" />} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/pos" component={() => <ProtectedRoute component={Pos} />} />
       <Route path="/products" component={() => <ProtectedRoute component={Products} />} />
@@ -96,3 +70,4 @@ function App() {
 }
 
 export default App;
+

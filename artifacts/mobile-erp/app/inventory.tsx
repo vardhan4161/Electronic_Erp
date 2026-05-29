@@ -1,223 +1,331 @@
-import { Feather } from "@expo/vector-icons";
-import { useCreateStockMovement, useGetLowStockProducts, useListProducts, useListStockMovements } from "@workspace/api-client-react";
-import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/useColors";
-import { Badge } from "@/components/Badge";
-import { EmptyState } from "@/components/EmptyState";
-
-const MOVEMENT_TYPES = ["PURCHASE", "ADJUSTMENT", "RETURN"] as const;
-type MovementType = (typeof MOVEMENT_TYPES)[number];
+/**
+ * Inventory Management Screen — Stock in, adjustments, movement history
+ */
+import { Feather } from '@expo/vector-icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useDatabaseStatus } from '@/contexts/DatabaseContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatCurrency, formatDate } from '@/utils/formatters';
+import type { StockMovement, Product } from '@/database/repositories';
 
 export default function InventoryScreen() {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<"low" | "movements">("low");
-  const [showAdd, setShowAdd] = useState(false);
-  const [productId, setProductId] = useState("");
-  const [movType, setMovType] = useState<MovementType>("PURCHASE");
-  const [qty, setQty] = useState("");
-  const [notes, setNotes] = useState("");
-  const [prodSearch, setProdSearch] = useState("");
+  const { colors } = useTheme();
+  const { repos } = useDatabaseStatus();
+  const { user } = useAuth();
+  const [tab, setTab] = useState<'overview' | 'low' | 'stockin' | 'history'>('overview');
+  const [summary, setSummary] = useState<any>(null);
+  const [lowStock, setLowStock] = useState<any[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: lowStock, isLoading: loadingLow, refetch: refetchLow } = useGetLowStockProducts();
-  const { data: movements, isLoading: loadingMov, refetch: refetchMov } = useListStockMovements({});
-  const { data: allProducts } = useListProducts({ search: prodSearch || undefined, isActive: true });
-  const addMovMutation = useCreateStockMovement();
+  // Stock In form
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [qty, setQty] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const handleAdd = async () => {
-    if (!productId || !qty) {
-      Alert.alert("Required", "Product and quantity are required");
-      return;
+  // Browse state variables for Stock In tab
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedBrandId, setSelectedBrandId] = useState<number | null>(null);
+  const [browseProducts, setBrowseProducts] = useState<Product[]>([]);
+
+  // Load categories and brands for Stock In
+  useEffect(() => {
+    if (!repos) return;
+    repos.categories.list().then(setCategories);
+    repos.brands.list().then(setBrands);
+  }, [repos]);
+
+  // Load products based on Stock In selections
+  useEffect(() => {
+    if (!repos) return;
+    if (selectedCategoryId !== null) {
+      const filters: any = { categoryId: selectedCategoryId, isActive: true };
+      if (selectedBrandId !== null && selectedBrandId !== 0) {
+        filters.brandId = selectedBrandId;
+      }
+      repos.products.list(filters).then(setBrowseProducts);
+    } else {
+      setBrowseProducts([]);
     }
-    try {
-      await addMovMutation.mutateAsync({
-        data: { productId: Number(productId), movementType: movType, quantity: Number(qty), notes: notes || null },
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowAdd(false);
-      setProductId(""); setQty(""); setNotes(""); setProdSearch("");
-      refetchLow(); refetchMov();
-    } catch {
-      Alert.alert("Error", "Failed to record stock movement");
-    }
+  }, [repos, selectedCategoryId, selectedBrandId]);
+
+  const loadData = useCallback(async () => {
+    if (!repos) return;
+    const [s, l, m] = await Promise.all([
+      repos.inventory.getSummary(),
+      repos.inventory.getLowStock(),
+      repos.inventory.getMovements(undefined, 50),
+    ]);
+    setSummary(s); setLowStock(l); setMovements(m); setRefreshing(false);
+  }, [repos]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const searchProducts = async (term: string) => {
+    setSearchTerm(term);
+    if (!repos || term.length < 2) { setSearchResults([]); return; }
+    const results = await repos.products.list({ search: term });
+    setSearchResults(results.slice(0, 10));
   };
 
+  const handleStockIn = async () => {
+    if (!repos || !selectedProduct || !qty) return;
+    try {
+      await repos.inventory.addStock(selectedProduct.id, parseInt(qty), notes || 'Stock purchase', user?.id);
+      Alert.alert('Success ✅', `Added ${qty} units to ${selectedProduct.name}`);
+      setSelectedProduct(null); setQty(''); setNotes(''); setSearchTerm(''); loadData();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
+  const tabs = [
+    { key: 'overview' as const, label: 'Overview', icon: 'pie-chart' as const },
+    { key: 'low' as const, label: 'Low Stock', icon: 'alert-triangle' as const },
+    { key: 'stockin' as const, label: 'Stock In', icon: 'plus-circle' as const },
+    { key: 'history' as const, label: 'History', icon: 'clock' as const },
+  ];
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-        {(["low", "movements"] as const).map((t) => (
-          <TouchableOpacity key={t} style={[styles.tab, t === tab && { borderBottomColor: colors.primary }]} onPress={() => setTab(t)}>
-            <Text style={[styles.tabText, { color: t === tab ? colors.primary : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-              {t === "low" ? `Low Stock (${lowStock?.length ?? 0})` : "Movements"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {tab === "low" && (
-        <FlatList
-          data={lowStock ?? []}
-          keyExtractor={(i) => String(i.id)}
-          renderItem={({ item }) => (
-            <View style={[styles.stockItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.stockInfo}>
-                <Text style={[styles.stockName, { color: colors.text, fontFamily: "Inter_600SemiBold" }]}>{item.name}</Text>
-                <Text style={[styles.stockMeta, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{item.sku} · {item.categoryName}</Text>
-              </View>
-              <View style={styles.stockRight}>
-                <Badge label={`${item.currentStock} left`} variant={item.currentStock === 0 ? "danger" : "warning"} />
-                <Text style={[styles.reorder, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>Min: {item.reorderLevel}</Text>
-              </View>
-            </View>
-          )}
-          contentContainerStyle={{ padding: 12, gap: 8, paddingBottom: 100 }}
-          onRefresh={refetchLow}
-          refreshing={false}
-          ListEmptyComponent={loadingLow ? <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} /> : <EmptyState icon="check-circle" title="All stock levels OK" subtitle="No products below reorder level" />}
-          scrollEnabled={!!(lowStock?.length)}
-        />
-      )}
-
-      {tab === "movements" && (
-        <FlatList
-          data={movements ?? []}
-          keyExtractor={(i) => String(i.id)}
-          renderItem={({ item }) => (
-            <View style={[styles.movItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.movInfo}>
-                <Text style={[styles.movProduct, { color: colors.text, fontFamily: "Inter_600SemiBold" }]}>{item.productName}</Text>
-                <Text style={[styles.movMeta, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  {item.movementType} · {new Date(item.createdAt).toLocaleDateString("en-IN")}
-                </Text>
-                {item.reference && <Text style={[styles.movMeta, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{item.reference}</Text>}
-              </View>
-              <View style={styles.movRight}>
-                <Text style={[styles.movQty, { color: item.quantity > 0 ? colors.success : colors.destructive, fontFamily: "Inter_700Bold" }]}>
-                  {item.quantity > 0 ? "+" : ""}{item.quantity}
-                </Text>
-                <Text style={[styles.movStock, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  → {item.newStock}
-                </Text>
-              </View>
-            </View>
-          )}
-          contentContainerStyle={{ padding: 12, gap: 8, paddingBottom: 100 }}
-          onRefresh={refetchMov}
-          refreshing={false}
-          ListEmptyComponent={loadingMov ? <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} /> : <EmptyState icon="trending-up" title="No stock movements" />}
-          scrollEnabled={!!(movements?.length)}
-        />
-      )}
-
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary, bottom: insets.bottom + 16 }]}
-        onPress={() => setShowAdd(true)}
-        activeOpacity={0.85}
-      >
-        <Feather name="plus" size={22} color="#fff" />
-      </TouchableOpacity>
-
-      <Modal visible={showAdd} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowAdd(false)}>
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Stock Movement</Text>
-            <TouchableOpacity onPress={() => setShowAdd(false)}><Feather name="x" size={22} color={colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalBody}>
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>Movement Type</Text>
-              <View style={styles.typeRow}>
-                {MOVEMENT_TYPES.map((t) => (
-                  <TouchableOpacity key={t} style={[styles.typeChip, { backgroundColor: movType === t ? colors.primary : colors.card, borderColor: colors.border }]} onPress={() => setMovType(t)}>
-                    <Text style={[styles.typeText, { color: movType === t ? "#fff" : colors.text, fontFamily: "Inter_500Medium" }]}>{t}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>Search Product</Text>
-              <TextInput style={[styles.inp, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card, fontFamily: "Inter_400Regular" }]} placeholder="Type product name..." placeholderTextColor={colors.mutedForeground} value={prodSearch} onChangeText={setProdSearch} />
-            </View>
-
-            {allProducts && allProducts.length > 0 && (
-              <View style={[styles.prodList, { borderColor: colors.border }]}>
-                {allProducts.slice(0, 5).map((p) => (
-                  <TouchableOpacity key={p.id} style={[styles.prodOpt, { borderBottomColor: colors.border, backgroundColor: productId === String(p.id) ? colors.primary + "22" : "transparent" }]} onPress={() => { setProductId(String(p.id)); setProdSearch(p.name); }}>
-                    <Text style={[styles.prodName, { color: colors.text, fontFamily: "Inter_500Medium" }]}>{p.name}</Text>
-                    <Text style={[styles.prodSku, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{p.sku} · Stock: {p.currentStock}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>Quantity *</Text>
-              <TextInput style={[styles.inp, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card, fontFamily: "Inter_400Regular" }]} placeholder="Enter quantity" placeholderTextColor={colors.mutedForeground} value={qty} onChangeText={setQty} keyboardType="numeric" />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>Notes</Text>
-              <TextInput style={[styles.inp, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card, fontFamily: "Inter_400Regular" }]} placeholder="Optional notes" placeholderTextColor={colors.mutedForeground} value={notes} onChangeText={setNotes} multiline />
-            </View>
-
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: addMovMutation.isPending ? 0.7 : 1 }]} onPress={handleAdd} disabled={addMovMutation.isPending}>
-              {addMovMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={[styles.saveBtnText, { fontFamily: "Inter_600SemiBold" }]}>Record Movement</Text>}
+    <ScrollView style={[styles.root, { backgroundColor: colors.background }]} contentContainerStyle={{ paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={colors.primary} />}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {tabs.map(t => (
+            <TouchableOpacity key={t.key} style={[styles.tab, { backgroundColor: tab === t.key ? colors.primary : colors.card, borderColor: tab === t.key ? colors.primary : colors.border }]} onPress={() => setTab(t.key)}>
+              <Feather name={t.icon} size={14} color={tab === t.key ? '#FFF' : colors.textSecondary} />
+              <Text style={[styles.tabText, { color: tab === t.key ? '#FFF' : colors.textSecondary }]}>{t.label}</Text>
             </TouchableOpacity>
-          </ScrollView>
+          ))}
         </View>
-      </Modal>
-    </View>
+      </ScrollView>
+
+      {tab === 'overview' && summary && (
+        <View style={styles.content}>
+          <View style={styles.statsRow}>
+            {[
+              { label: 'Total Products', value: String(summary.totalProducts), color: colors.primary },
+              { label: 'Stock Value', value: formatCurrency(summary.totalStockValue), color: colors.success },
+              { label: 'Low Stock', value: String(summary.lowStockCount), color: colors.warning },
+              { label: 'Out of Stock', value: String(summary.outOfStockCount), color: colors.error },
+            ].map(s => (
+              <View key={s.label} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {tab === 'low' && (
+        <View style={styles.content}>
+          {lowStock.length === 0 ? (
+            <View style={styles.empty}><Feather name="check-circle" size={40} color={colors.success} /><Text style={[styles.emptyText, { color: colors.textSecondary }]}>All products are well-stocked!</Text></View>
+          ) : lowStock.map(p => (
+            <View key={p.id} style={[styles.lowCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.lowName, { color: colors.text }]}>{p.name}</Text>
+                <Text style={[styles.lowSku, { color: colors.textMuted }]}>{p.sku} • {p.category_name}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.lowStock, { color: p.current_stock === 0 ? colors.error : colors.warning }]}>{p.current_stock} pcs</Text>
+                <Text style={[styles.lowReorder, { color: colors.textMuted }]}>Min: {p.reorder_level}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {tab === 'stockin' && (
+        <View style={[styles.content, { gap: 12 }]}>
+          <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.formTitle, { color: colors.textSecondary }]}>ADD STOCK</Text>
+            {!selectedProduct ? (
+              <>
+                <TextInput 
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} 
+                  placeholder="Search product name or SKU..." 
+                  placeholderTextColor={colors.textMuted} 
+                  value={searchTerm} 
+                  onChangeText={searchProducts} 
+                />
+                
+                {searchTerm.length > 0 ? (
+                  searchResults.map(p => (
+                    <TouchableOpacity key={p.id} style={[styles.resultItem, { borderColor: colors.border }]} onPress={() => { setSelectedProduct(p); setSearchResults([]); setSearchTerm(''); }}>
+                      <Text style={[styles.resultName, { color: colors.text }]}>{p.name}</Text>
+                      <Text style={[styles.resultSku, { color: colors.textMuted }]}>Stock: {p.current_stock} pcs</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <>
+                    {selectedCategoryId === null ? (
+                      <View style={{ gap: 12, marginTop: 8 }}>
+                        <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.textSecondary }}>Or Browse by Category:</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {categories.map(cat => (
+                            <TouchableOpacity 
+                              key={cat.id} 
+                              style={[styles.miniChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                              onPress={() => { setSelectedCategoryId(cat.id); setSelectedBrandId(null); }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={{ fontSize: 12, color: colors.text, fontFamily: 'Inter_500Medium' }}>{cat.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    ) : selectedBrandId === null ? (
+                      <View style={{ gap: 10, marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.text }}>
+                            Category: <Text style={{ color: colors.primary }}>{categories.find(c => c.id === selectedCategoryId)?.name || ''}</Text>
+                          </Text>
+                          <TouchableOpacity onPress={() => { setSelectedCategoryId(null); setSelectedBrandId(null); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Feather name="arrow-left" size={12} color={colors.primary} />
+                            <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: colors.primary }}>Change</Text>
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'Inter_500Medium' }}>Select Brand:</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          <TouchableOpacity 
+                            style={[styles.miniChip, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '44' }]}
+                            onPress={() => setSelectedBrandId(0)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ fontSize: 12, color: colors.primary, fontFamily: 'Inter_700Bold' }}>All Brands</Text>
+                          </TouchableOpacity>
+                          {brands.filter(b => new Set(browseProducts.map(p => p.brand_id).filter(Boolean)).has(b.id)).map(b => (
+                            <TouchableOpacity 
+                              key={b.id} 
+                              style={[styles.miniChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                              onPress={() => setSelectedBrandId(b.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={{ fontSize: 12, color: colors.text, fontFamily: 'Inter_500Medium' }}>{b.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={{ gap: 8, marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: colors.text }} numberOfLines={1}>
+                            {categories.find(c => c.id === selectedCategoryId)?.name || ''} • <Text style={{ color: colors.primary }}>{selectedBrandId === 0 ? 'All Brands' : brands.find(b => b.id === selectedBrandId)?.name || ''}</Text>
+                          </Text>
+                          <TouchableOpacity onPress={() => setSelectedBrandId(null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Feather name="arrow-left" size={12} color={colors.primary} />
+                            <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: colors.primary }}>Change Brand</Text>
+                          </TouchableOpacity>
+                        </View>
+                        
+                        {browseProducts.length === 0 ? (
+                          <Text style={{ fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', paddingVertical: 8 }}>No products found.</Text>
+                        ) : (
+                          <ScrollView style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 8 }} nestedScrollEnabled>
+                            {browseProducts.map(p => (
+                              <TouchableOpacity 
+                                key={p.id} 
+                                style={[styles.resultItem, { borderColor: colors.border }]} 
+                                onPress={() => { 
+                                  setSelectedProduct(p); 
+                                  setSearchResults([]); 
+                                  setSearchTerm(''); 
+                                  setSelectedCategoryId(null);
+                                  setSelectedBrandId(null);
+                                }}
+                              >
+                                <Text style={[styles.resultName, { color: colors.text }]}>{p.name}</Text>
+                                <Text style={[styles.resultSku, { color: colors.textMuted }]}>SKU: {p.sku} • Stock: {p.current_stock} pcs</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </View>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={[styles.selectedProd, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Text style={[styles.selectedName, { color: colors.text }]}>{selectedProduct.name}</Text>
+                  <TouchableOpacity onPress={() => setSelectedProduct(null)}><Feather name="x" size={18} color={colors.textMuted} /></TouchableOpacity>
+                </View>
+                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Quantity" placeholderTextColor={colors.textMuted} value={qty} onChangeText={setQty} keyboardType="numeric" />
+                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Notes (optional)" placeholderTextColor={colors.textMuted} value={notes} onChangeText={setNotes} />
+                <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colors.primary }]} onPress={handleStockIn}><Text style={styles.submitText}>Add Stock</Text></TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      )}
+
+      {tab === 'history' && (
+        <View style={styles.content}>
+          {movements.map(m => (
+            <View key={m.id} style={[styles.moveCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.moveIcon, { backgroundColor: m.movement_type === 'PURCHASE' ? colors.success + '22' : m.movement_type === 'SALE' ? colors.error + '22' : colors.info + '22' }]}>
+                <Feather name={m.movement_type === 'PURCHASE' ? 'arrow-down' : m.movement_type === 'SALE' ? 'arrow-up' : 'refresh-cw'} size={14} color={m.movement_type === 'PURCHASE' ? colors.success : m.movement_type === 'SALE' ? colors.error : colors.info} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.moveProd, { color: colors.text }]}>{m.product_name || 'Unknown'}</Text>
+                <Text style={[styles.moveRef, { color: colors.textMuted }]}>{m.movement_type} • {m.reference || m.notes || ''}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.moveQty, { color: m.movement_type === 'PURCHASE' || m.movement_type === 'RETURN' ? colors.success : colors.error }]}>{m.movement_type === 'PURCHASE' || m.movement_type === 'RETURN' ? '+' : '-'}{m.quantity}</Text>
+                <Text style={[styles.moveDate, { color: colors.textMuted }]}>{formatDate(m.created_at)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  tabs: { flexDirection: "row", borderBottomWidth: 1 },
-  tab: { flex: 1, paddingVertical: 14, alignItems: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
-  tabText: { fontSize: 14 },
-  stockItem: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
-  stockInfo: { flex: 1 },
-  stockName: { fontSize: 14, marginBottom: 2 },
-  stockMeta: { fontSize: 12 },
-  stockRight: { alignItems: "flex-end", gap: 4 },
-  reorder: { fontSize: 12 },
-  movItem: { flexDirection: "row", alignItems: "flex-start", padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
-  movInfo: { flex: 1 },
-  movProduct: { fontSize: 14, marginBottom: 2 },
-  movMeta: { fontSize: 12, lineHeight: 18 },
-  movRight: { alignItems: "flex-end" },
-  movQty: { fontSize: 20 },
-  movStock: { fontSize: 12 },
-  fab: { position: "absolute", right: 16, width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4 },
-  modal: { flex: 1 },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1 },
-  modalTitle: { fontSize: 20 },
-  modalBody: { padding: 20, gap: 16 },
-  field: { gap: 8 },
-  label: { fontSize: 13 },
-  typeRow: { flexDirection: "row", gap: 8 },
-  typeChip: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center" },
-  typeText: { fontSize: 13 },
-  inp: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12, fontSize: 15 },
-  prodList: { borderRadius: 10, borderWidth: 1, overflow: "hidden" },
-  prodOpt: { padding: 12, borderBottomWidth: 1 },
-  prodName: { fontSize: 14 },
-  prodSku: { fontSize: 12 },
-  saveBtn: { borderRadius: 12, paddingVertical: 16, alignItems: "center" },
-  saveBtnText: { color: "#fff", fontSize: 16 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  tabText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  content: { padding: 16, gap: 8 },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statCard: { width: '47%', flexGrow: 1, padding: 14, borderRadius: 14, borderWidth: 1, gap: 4 },
+  statValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  statLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  empty: { alignItems: 'center', paddingTop: 40, gap: 10 },
+  emptyText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  lowCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, borderWidth: 1 },
+  lowName: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  lowSku: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  lowStock: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  lowReorder: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  formCard: { padding: 16, borderRadius: 14, borderWidth: 1, gap: 10 },
+  formTitle: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1 },
+  input: { height: 42, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  resultItem: { padding: 10, borderBottomWidth: 0.5 },
+  resultName: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  resultSku: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  selectedProd: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, borderRadius: 10, borderWidth: 1 },
+  selectedName: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  submitBtn: { height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  submitText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  moveCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, gap: 10 },
+  moveIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  moveProd: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  moveRef: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  moveQty: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  moveDate: { fontSize: 10, fontFamily: 'Inter_400Regular' },
+  miniChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
 });

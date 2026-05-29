@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Electronics ERP Mobile",
-    "slug": "mobile-erp",
+    "name": "NK Enterprises ERP",
+    "slug": "nk-erp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile-erp",
+    "scheme": "nk-erp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -16,7 +16,13 @@
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.nkenterprises.erp",
+      "permissions": ["CAMERA"],
+      "adaptiveIcon": {
+        "backgroundColor": "#0D1117"
+      }
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -24,11 +30,18 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://nkenterprises.app/"
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow NK Enterprises ERP to access your camera for barcode scanning."
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

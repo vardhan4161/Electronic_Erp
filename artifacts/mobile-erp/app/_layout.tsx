@@ -1,96 +1,87 @@
+/**
+ * Root Layout — App entry with all providers
+ * Initializes database, fonts, theme, auth
+ */
 import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
   useFonts,
-} from "@expo-google-fonts/inter";
-import { setBaseUrl } from "@workspace/api-client-react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+} from '@expo-google-fonts/inter';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { CartProvider } from "@/contexts/CartContext";
+import { DatabaseProvider, useDatabaseStatus } from '@/contexts/DatabaseContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { CartProvider } from '@/contexts/CartContext';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
-});
-
-if (process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
-}
-
 function RootLayoutNav() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { isReady: dbReady, error: dbError } = useDatabaseStatus();
+  const { colors } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
-    const inTabs = segments[0] === "(tabs)";
-    const inLogin = segments[0] === "login";
+    if (!dbReady || authLoading) return;
+    const inTabs = segments[0] === '(tabs)';
+    const inLogin = segments[0] === 'login';
 
     if (!user && !inLogin) {
-      router.replace("/login");
+      router.replace('/login');
     } else if (user && inLogin) {
-      router.replace("/(tabs)");
+      router.replace('/(tabs)');
     }
-  }, [user, isLoading, segments, router]);
+  }, [user, authLoading, dbReady, segments]);
 
-  if (isLoading) {
+  if (dbError) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0D1117" }}>
-        <ActivityIndicator color="#3B82F6" size="large" />
+      <View style={[styles.center, { backgroundColor: '#0D1117' }]}>
+        <Text style={styles.errorText}>❌ Database Error</Text>
+        <Text style={styles.errorSub}>{dbError}</Text>
+      </View>
+    );
+  }
+
+  if (!dbReady || authLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: '#0D1117' }]}>
+        <Text style={styles.logo}>NK Enterprises</Text>
+        <ActivityIndicator color="#3B82F6" size="large" style={{ marginTop: 20 }} />
+        <Text style={styles.loadingText}>Setting up...</Text>
       </View>
     );
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="product/[id]"
-        options={{ title: "Product Details", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="customer/[id]"
-        options={{ title: "Customer", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="sale/[id]"
-        options={{ title: "Invoice", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="inventory"
-        options={{ title: "Inventory", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="reports"
-        options={{ title: "Reports", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="settings"
-        options={{ title: "Settings", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="sales-history"
-        options={{ title: "Sales History", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="users"
-        options={{ title: "Users", headerStyle: { backgroundColor: "#161B22" }, headerTintColor: "#E2E8F0", headerBackTitle: "Back" }}
-      />
-    </Stack>
+    <>
+      <StatusBar style={colors.statusBar === 'light' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerStyle: { backgroundColor: colors.card }, headerTintColor: colors.text, headerShadowVisible: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="product/[id]" options={{ title: 'Product Details' }} />
+        <Stack.Screen name="product/add" options={{ title: 'Add Product' }} />
+        <Stack.Screen name="customer/[id]" options={{ title: 'Customer Details' }} />
+        <Stack.Screen name="sale/[id]" options={{ title: 'Invoice' }} />
+        <Stack.Screen name="inventory" options={{ title: 'Inventory' }} />
+        <Stack.Screen name="reports" options={{ title: 'Reports' }} />
+        <Stack.Screen name="sales-history" options={{ title: 'Sales History' }} />
+        <Stack.Screen name="expenses" options={{ title: 'Expenses' }} />
+        <Stack.Screen name="users" options={{ title: 'User Management' }} />
+        <Stack.Screen name="categories-brands" options={{ title: 'Categories & Brands' }} />
+        <Stack.Screen name="suppliers" options={{ title: 'Suppliers' }} />
+        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      </Stack>
+    </>
   );
 }
 
@@ -112,19 +103,25 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <AuthProvider>
-                <CartProvider>
-                  <RootLayoutNav />
-                </CartProvider>
-              </AuthProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
-      </ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider>
+          <DatabaseProvider>
+            <AuthProvider>
+              <CartProvider>
+                <RootLayoutNav />
+              </CartProvider>
+            </AuthProvider>
+          </DatabaseProvider>
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  logo: { fontSize: 28, fontWeight: '700', color: '#E6EDF3', letterSpacing: 0.5 },
+  loadingText: { fontSize: 14, color: '#8B949E', marginTop: 12 },
+  errorText: { fontSize: 20, fontWeight: '700', color: '#EF4444' },
+  errorSub: { fontSize: 14, color: '#8B949E', marginTop: 8, paddingHorizontal: 32, textAlign: 'center' },
+});
